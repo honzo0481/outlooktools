@@ -60,13 +60,23 @@ class SharedCalendarSurrogate(object):
     filter_string = ' Or '.join((organizer_filter_string % (organizer) for organizer in organizers))
     self.filter_appointments(filter_string)
 
-  def generate_appointment_details(self):
+  def generate_appointment_details(self, *args):
     ''' '''
-    self.appointment_details = ((appointment.Start, appointment.End, appointment.Organizer, appointment.Subject.encode('utf-8'),
-                            appointment.Body.encode('utf-8')[:32758])
-                            for appointment in self.appointments)
 
-    # TODO add more export format options.
+    self.appointment_details = []
+    for appointment in self.appointments:
+        details = []
+        for arg in args:
+            if arg == 'Subject':
+                details.append(getattr(appointment, arg).encode('utf-8'))
+            elif arg == 'Body':
+                details.append(getattr(appointment, arg).encode('utf-8')[:32758])
+            else:
+                details.append(getattr(appointment, arg))
+        self.appointment_details.append(details)
+
+
+# TODO add more export format options.
   def export_to_csv(self, file):
     ''' '''
     with open(file, 'wb') as f:
@@ -89,15 +99,17 @@ class FilterString(object):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('recipient', help='the shared calendar you want to pull appointments from.')
+    parser.add_argument('recipients', nargs='+', help='the shared calendar(s) you want to pull appointments from.')
     parser.add_argument('-b', '--begin', help='include appointments on or after the begin date.')
     parser.add_argument('-e', '--end', help='include appointments on or before the end date.')
     parser.add_argument('-o', '--organizer', help='include appoinments from the organizer.')
     parser.add_argument('-r', '--daterange', help='include appointments within the date range.')
     parser.add_argument('--includerecurrences', help='include recurrences')
+    parser.add_argument('--fields', nargs='+', help='fields to include in the output')
     args = parser.parse_args()
 
-    shared_calendar = SharedCalendarSurrogate(recipient=args.recipient)
+for recipient in args.recipients:
+    shared_calendar = SharedCalendarSurrogate(recipient=recipient)
     shared_calendar.get_appointments()
     if args.includerecurrences == True:
       shared_calendar.include_recurrences()
@@ -106,5 +118,8 @@ if __name__ == '__main__':
       shared_calendar.filter_appointments_by_date_range(date_range=args.daterange)
     if args.organizer:
       shared_calendar.filter_appointments_by_organizer(organizer=args.organizer)
-    shared_calendar.generate_appointment_details()
-    shared_calendar.export_to_csv('%s_appointments.csv' % args.recipient)
+    if args.fields:
+        shared_calendar.generate_appointment_details(*args.fields)
+    else:
+        shared_calendar.generate_appointment_details('Start', 'End', 'Organizer', 'Subject', 'Body')
+    shared_calendar.export_to_csv('appointments_%s.csv' % recipient)
