@@ -1,2 +1,3 @@
 # outlooktools
-python tools for working with outlook
+python scripts for working with outlook.
+
